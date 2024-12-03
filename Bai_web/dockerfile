@@ -1,0 +1,32 @@
+# 使用 Node.js 官方镜像进行构建
+FROM node:16-alpine AS build-stage
+
+# 设置工作目录
+WORKDIR /baihe  # 设置为新工作目录
+
+# 复制 package.json 和 package-lock.json
+COPY package*.json ./
+
+# 安装项目依赖（包括开发依赖）
+RUN npm install
+
+# 复制源代码及配置文件
+COPY ./src /baihe/src
+COPY ./public /baihe/public
+COPY ./vue.config.js /baihe/vue.config.js
+COPY ./babel.config.js /baihe/babel.config.js
+
+# 使用 npx 运行 vue-cli-service build，避免权限问题
+RUN npx vue-cli-service build
+
+# 使用 Nginx 作为服务器
+FROM nginx:stable-alpine
+
+# 复制构建的文件到新的路径
+COPY --from=build-stage /baihe/dist/ /usr/share/nginx/html/baihe
+
+# 暴露 Nginx 运行的端口，记得修改配置文件
+EXPOSE 8080  
+
+# 运行 Nginx
+CMD ["nginx", "-g", "daemon off;"]

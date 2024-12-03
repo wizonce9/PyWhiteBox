@@ -1,0 +1,47 @@
+version: '3'
+
+services:
+  backend:
+    image: baihetest:latest
+    container_name: baihe_server
+    restart: always
+    ports:
+      - "28080:28080"
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/baihe_wbq?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=woainiaiwo121
+    networks:
+      - baihe-network
+
+  frontend:
+    image: my-frontend-baihe:latest
+    container_name: my-frontend-baihe
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - baihe-network
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_php_yun2
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=woainiaiwo121
+      - MYSQL_DATABASE=baihe_wbq
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./sql/baihe_wbq.sql:/docker-entrypoint-initdb.d/baihe_wbq.sql:ro
+    networks:
+      - baihe-network
+
+volumes:
+  db_data:
+
+networks:
+  baihe-network:

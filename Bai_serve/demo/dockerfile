@@ -1,0 +1,21 @@
+# 使用官方的 OpenJDK 17 镜像作为基础镜像
+FROM eclipse-temurin:17-jre
+
+# 设置时区（适用于 Debian/Ubuntu 系统）
+RUN apt-get update && apt-get install -y tzdata \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone \
+    && apt-get clean
+
+# 设置应用程序的工作目录
+WORKDIR /baihe
+
+# 将当前目录下的 jar 文件复制到容器的 /baihe 目录
+# 确保你把构建的 JAR 文件路径设置为正确的目标路径
+COPY target/baihetest.jar /baihe/baihetest.jar
+
+# 暴露应用运行的端口（我的后端端口为28080）
+EXPOSE 28080
+
+# 运行应用程序
+ENTRYPOINT ["java", "-jar", "/baihe/baihetest.jar"]
