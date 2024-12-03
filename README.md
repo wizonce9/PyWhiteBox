@@ -8,7 +8,7 @@
 
 ## Introduction
 
-**White-Box Testing Tool** is a web-based tool designed for white-box testing of Python code. Users can simply paste or enter the code to be tested into an input field, select different testing modes (Basic Path Testing, Path Coverage Testing, and Large Model Testing), and automatically generate the corresponding test flowchart and detailed test cases. This significantly improves the efficiency of testing.
+**PyWhiteBox** is a web-based tool designed for white-box testing of Python code. Users can simply paste or enter the code to be tested into an input field, select different testing modes (Basic Path Testing, Path Coverage Testing, and Large Model Testing), and automatically generate the corresponding test flowchart and detailed test cases. This significantly improves the efficiency of testing.
 
 The software features a clean and user-friendly interface. The input field allows for easy code pasting, and the mode selection section lets users switch between different testing modes effortlessly. The "Submit" button generates the test results with a single click. Additionally, the software supports saving and deleting test records. Users can view, download, and delete saved records from the list, which is useful for future analysis and comparison.
 
