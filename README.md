@@ -28,9 +28,6 @@ def fun(a, b, c, d):
 ### Example Output: 
 ![image](https://github.com/user-attachments/assets/689b27e9-443c-462a-a003-b34e3a1383b2)
 
-
-If there are any errors, such as incorrect code formatting or unexpected issues, the software provides appropriate prompts, helping users make adjustments.
-
 ### Important Notes:
 - For accurate test case generation, users must ensure that the Python code is correctly formatted and select the appropriate test method.
 
