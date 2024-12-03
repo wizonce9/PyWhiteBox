@@ -22,8 +22,8 @@ The software features a clean and user-friendly interface. The input field allow
 ```python 
 def fun(a, b, c, d): 
    if a > 0 or b > 0: 
-   if c > 0 or d > 0: 
-   print(A) 
+      if c > 0 or d > 0: 
+      print(A) 
    return A 
 ``` 
 ### Example Output: 
@@ -112,4 +112,4 @@ Before running the Python code, ensure the following packages are installed in y
 
 ## Authors
 
-This tool was developed by **Ji Xin-Jian** and **Wang Bing-Qian** from the School of Software and Microelectronics, Peking University.
+This tool was developed by **Xinjian Ji** and **Bingqian Wang** from the School of Software and Microelectronics, Peking University.
