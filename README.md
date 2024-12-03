@@ -6,7 +6,7 @@ Here's a polished and structured English README for your project:
 
 <img width="924" alt="84c07180eb6960a4b1a7070daf12dd6" src="https://github.com/user-attachments/assets/97199e5a-e2ab-4ea3-b55c-88bd6606089b">
 
-![image](https://github.com/user-attachments/assets/8a47e6f0-da8f-44c9-9025-34d64bce2761)
+<img width="921" alt="c06fc96add9dfe357c44505f689dd7d" src="https://github.com/user-attachments/assets/e8d0ff94-43d6-4041-91a4-f35fb80bd0b7">
 
 
 ## Introduction
