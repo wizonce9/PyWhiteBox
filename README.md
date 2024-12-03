@@ -1,7 +1,3 @@
-Here's a polished and structured English README for your project:
-
----
-
 # White-Box Testing Tool
 
 <img width="924" alt="84c07180eb6960a4b1a7070daf12dd6" src="https://github.com/user-attachments/assets/97199e5a-e2ab-4ea3-b55c-88bd6606089b">
@@ -20,6 +16,18 @@ The software features a clean and user-friendly interface. The input field allow
 2. Paste or input the code you want to test.
 3. Select the desired test type.
 4. Click "Submit" to generate the test results.
+
+### Example Python Code: 
+```python 
+def fun(a, b, c, d): 
+   if a > 0 or b > 0: 
+   if c > 0 or d > 0: 
+   print(A) 
+   return A 
+``` 
+### Example Output: 
+![image](https://github.com/user-attachments/assets/689b27e9-443c-462a-a003-b34e3a1383b2)
+
 
 If there are any errors, such as incorrect code formatting or unexpected issues, the software provides appropriate prompts, helping users make adjustments.
 
