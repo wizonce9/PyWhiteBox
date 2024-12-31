@@ -25,7 +25,7 @@ You can access the application by visiting the webpage: http://124.70.51.109:808
 def fun(a, b, c, d): 
    if a > 0 or b > 0: 
       if c > 0 or d > 0: 
-      print(A) 
+         print(A) 
    return A 
 ``` 
 ### Example Output: 
