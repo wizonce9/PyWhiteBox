@@ -12,6 +12,8 @@
 
 The software features a clean and user-friendly interface. The input field allows for easy code pasting, and the mode selection section lets users switch between different testing modes effortlessly. The "Submit" button generates the test results with a single click. Additionally, the software supports saving and deleting test records. Users can view, download, and delete saved records from the list, which is useful for future analysis and comparison.
 
+You can access the application by visiting the webpage: http://124.70.51.109:8080/register.
+
 ### Usage:
 1. Open the web application in a browser.
 2. Paste or input the code you want to test.
