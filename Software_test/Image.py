@@ -588,7 +588,7 @@ def generate_and_save_flowchart(flowchart_code, output_filename='flowchart_outpu
     output_filename (str): 输出文件的基础名称（默认保存为 'flowchart_output.png'）。
     """
     # 定义保存图片的目录
-    save_directory = r".\pic_create\output"
+    save_directory = r"D:\2024_Study\2024_9_project_computer\SoftWare_test\pic_create"
 
     # 确保保存目录存在，不存在则创建
     if not os.path.exists(save_directory):
@@ -680,40 +680,18 @@ def check_age(age,b):
     else:
         A = "zzz."
     if b < 0:
-        A = "Invalid"
-    elif b <= 18:
-        A = "zzz."
-    elif b <= 50:
-        A = "zzz."
-    else:
-        A = "zzz."
-    return A
-# """
-# print(code)
-def check_age(age,b):
-    if age < 0:
-        A = "Invalid"
-    elif age <= 18:
-        A = "zzz."
-    elif age <= 50:
-        A = "a."
-    else:
-        A = "s."
-    if b < 0:
         B = "Invalid"
     elif b <= 18:
-        B = "d."
+        B = "zzz."
     elif b <= 50:
-        B = "f."
+        B = "zzz."
     else:
-        B = "g."
-    return A
+        B = "zzz."
+    return A,B
+# """
+# print(code)
 
-def check_age():
-    i=0
-    while i<10:
-        i+=1
-    return i
+
 #
 # # 转换代码
 # transformed_code = transform_code(code)

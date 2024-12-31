@@ -1,6 +1,5 @@
 import re
 import random
-
 def generate_test_cases_from_paths(paths, edges, conditions):
     random.seed(42)
     test_cases = []
@@ -11,7 +10,10 @@ def generate_test_cases_from_paths(paths, edges, conditions):
         for i, node in enumerate(path):
             if node.startswith('cond'):
                 # 查找条件节点的下一个节点
-                next_node = path[i + 1] if i + 1 < len(path) else None
+                if i + 1 < len(path):
+                    next_node = path[i + 1]
+                else:
+                    next_node = None
 
                 if next_node:
                     # 构造边的键
@@ -20,7 +22,7 @@ def generate_test_cases_from_paths(paths, edges, conditions):
                     condition = conditions.get(node, None)
                     if condition:
                         try:
-                            parsed_condition = parse_condition(condition)
+                            variable, operator, value = parse_condition(condition)
                         except ValueError as ve:
                             test_cases.append({
                                 "Error": str(ve),
@@ -31,10 +33,10 @@ def generate_test_cases_from_paths(paths, edges, conditions):
                         # 根据边的存在情况决定条件
                         if edge_key_yes in edges:
                             # 走 'yes' 分支，条件为真
-                            case_conditions.append((*parsed_condition, 'True'))
+                            case_conditions.append((variable, operator, value, 'True'))
                         elif edge_key_no in edges:
                             # 走 'no' 分支，条件为假
-                            case_conditions.append((*parsed_condition, 'False'))
+                            case_conditions.append((variable, operator, value, 'False'))
                         else:
                             test_cases.append({
                                 "Error": f"边 {edge_key_yes} 或 {edge_key_no} 未找到。",
@@ -43,7 +45,8 @@ def generate_test_cases_from_paths(paths, edges, conditions):
                             break
 
         # 根据汇总的条件生成测试用例
-        if not any("Error" in tc for tc in test_cases[-1:]):  # Only check the last-added test case
+        # 只在没有错误的情况下生成测试用例
+        if not any("Error" in tc for tc in test_cases[-1:]):  # 只检查最新添加的测试用例
             try:
                 case_inputs = create_case_from_conditions(case_conditions)
                 test_cases.append({
@@ -63,12 +66,11 @@ def parse_condition(condition):
     """
     解析条件表达式，提取变量、运算符和值。
     例如：'if (age < 0)' -> ('age', '<', 0)
-    或者仅有变量时，返回布尔值 ('age', 'bool', None)
     """
-    # Remove 'if', parentheses, and extra whitespace
+    # 去除条件中的 'if' 和括号
     condition = condition.replace("if", "").replace("(", "").replace(")", "").strip()
 
-    # Define supported operators
+    # 定义支持的运算符，按照长度降序避免 '<=' 被 '<' 先匹配
     operators = ['<=', '>=', '==', '!=', '<', '>']
     for op in operators:
         if op in condition:
@@ -76,15 +78,14 @@ def parse_condition(condition):
             if len(parts) == 2:
                 variable = parts[0].strip()
                 value_str = parts[1].strip()
+                # 处理可能的负数和小数
                 match = re.match(r'^-?\d+(\.\d+)?$', value_str)
                 if match:
                     value = float(value_str) if '.' in value_str else int(value_str)
                 else:
                     raise ValueError(f"无法解析的值: {value_str} 在条件: {condition}")
                 return variable, op, value
-
-    # If no operator is found, treat as boolean
-    return condition, 'bool', None
+    raise ValueError(f"不支持的条件运算符在条件: {condition}")
 
 
 def create_case_from_conditions(conditions):
@@ -93,51 +94,56 @@ def create_case_from_conditions(conditions):
     条件的格式为 (variable, operator, value, branch)
     branch 为 'True' 表示条件为真，'False' 表示条件为假
     """
+    # 假设所有条件作用于同一个变量
+    # 如果有多个变量，需要调整此部分逻辑
     variables_constraints = {}
 
     for variable, operator, value, branch in conditions:
-        if operator == 'bool':
-            # Randomly assign True or False for boolean variables
-            test_case_value = random.choice([True, False]) if branch == 'True' else random.choice([False, True])
-            variables_constraints[variable] = test_case_value
-            continue
-
         if variable not in variables_constraints:
             variables_constraints[variable] = []
 
+        # 根据分支状态，转换条件
         if branch == 'True':
             constraint = (operator, value)
         else:
+            # 获取反向运算符
             inverse_operator = get_inverse_operator(operator)
             constraint = (inverse_operator, value)
 
         variables_constraints[variable].append(constraint)
 
+    # 现在为每个变量计算允许的范围
     test_case = {}
     for variable, constraints in variables_constraints.items():
-        if isinstance(constraints, bool):  # Handle boolean directly
-            test_case[variable] = constraints
+        allowed_range = compute_allowed_range(constraints)
+        if allowed_range is None:
+            raise ValueError(f"无法找到满足所有条件的范围: {constraints}")
+        min_val, max_val = allowed_range
+        # 随机选择一个值在 min_val 和 max_val 之间
+        # 如果 min_val 是 -inf，设定一个实际的下限
+        if min_val == float('-inf'):
+            min_val = -1000
+        # 如果 max_val 是 +inf，设定一个实际的上限
+        if max_val == float('inf'):
+            max_val = 1000
+        # 随机选择一个整数或浮点数
+        if isinstance(min_val, int) and isinstance(max_val, int):
+            if min_val > max_val:
+                raise ValueError(f"对于变量 '{variable}'，最小值 {min_val} 大于最大值 {max_val}。")
+            selected_value = random.randint(int(min_val), int(max_val))
         else:
-            allowed_range = compute_allowed_range(constraints)
-            if allowed_range is None:
-                raise ValueError(f"无法找到满足所有条件的范围: {constraints}")
-            min_val, max_val = allowed_range
-            if min_val == float('-inf'):
-                min_val = -1000
-            if max_val == float('inf'):
-                max_val = 1000
-            if isinstance(min_val, int) and isinstance(max_val, int):
-                if min_val > max_val:
-                    raise ValueError(f"对于变量 '{variable}'，最小值 {min_val} 大于最大值 {max_val}。")
-                selected_value = random.randint(int(min_val), int(max_val))
-            else:
-                selected_value = round(random.uniform(float(min_val), float(max_val)), 2)
-            test_case[variable] = selected_value
+            selected_value = round(random.uniform(float(min_val), float(max_val)), 2)
+        test_case[variable] = selected_value
 
     return test_case
 
 
 def compute_allowed_range(constraints):
+    """
+    根据一组约束条件，计算变量允许的最小值和最大值。
+    约束的格式为 (operator, value)
+    返回一个元组 (min_val, max_val)
+    """
     min_val = float('-inf')
     max_val = float('inf')
 
@@ -158,26 +164,33 @@ def compute_allowed_range(constraints):
             min_val = value
             max_val = value
         elif operator == '!=':
+            # 对于 '!=', 需要特殊处理，这里简单地选择 value + 1 或 value - 1
+            # 更复杂的处理需要考虑范围和其他条件
             if value >= min_val and value < max_val:
+                # Preferably, choose value + 1 within the range
                 min_val = value + 1
             else:
                 min_val = max(min_val, value - 1)
         else:
             raise ValueError(f"不支持的运算符: {operator}")
 
+    # 检查是否有冲突
     if min_val > max_val:
         return None
+
     return (min_val, max_val)
 
 
 def format_conditions(conditions):
+    """
+    将条件集合格式化为易读的字符串形式，不包含 True/False。
+    """
     formatted = []
     for variable, operator, value, branch in conditions:
-        if operator == 'bool':
-            condition_str = f"{variable} 为 {'True' if branch == 'True' else 'False'}"
-        elif branch == 'True':
+        if branch == 'True':
             condition_str = f"{variable} {operator} {value}"
         else:
+            # 生成条件的反向
             inverse_operator = get_inverse_operator(operator)
             condition_str = f"{variable} {inverse_operator} {value}"
         formatted.append(condition_str)
@@ -185,6 +198,9 @@ def format_conditions(conditions):
 
 
 def get_inverse_operator(operator):
+    """
+    获取运算符的反向操作符。
+    """
     inverse_map = {
         '<': '>=',
         '<=': '>',
@@ -203,37 +219,42 @@ paths = [
     ['io5', 'cond9', 'cond18', 'cond27', 'op31', 'io43'],
     ['io5', 'cond9', 'cond18', 'cond27', 'op35', 'io43']
 ]
-
-# 示例条件和边界
 def Trans(output_code):
     conditions = {}
     edges = []
 
-    # Split the code lines
+    # 分割代码行
     lines = output_code.strip().splitlines()
 
-    # Parse each line
+    # 解析每一行
     for line in lines:
         if '=>' in line:
-            # Handle node definitions
+            # 处理节点定义
             node, definition = line.split('=>')
             node_type, content = definition.split(': ', 1)
 
-            # Only extract condition type nodes
+            # 仅提取condition类型的节点
             if node_type == 'condition':
                 condition_statement = content.strip()
+                # 将条件加入conditions字典
                 conditions[node.strip()] = condition_statement
 
         elif '->' in line:
-            # Handle edge definitions
+            # 处理边的表示
             edges.append(line.strip())
 
     return conditions, edges
 
-# Example usage (for testing purposes):
+# # 调用函数
 # conditions, edges = Trans(output_code)
+#
+# # 设置随机种子以保证可重复性（可选）
 # random.seed(42)
+#
+# # 生成测试用例
 # test_cases = generate_test_cases_from_paths(paths, edges, conditions)
+#
+# # 输出生成的测试用例
 # for i, case in enumerate(test_cases):
 #     print(f"测试用例 {i + 1}:")
 #     if "Error" in case:

@@ -27,13 +27,13 @@ services:
 
   db:
     image: mysql:8.0
-    container_name: mysql_php_yun2
+    container_name: mysql_baihe
     restart: always
     environment:
       - MYSQL_ROOT_PASSWORD=woainiaiwo121
       - MYSQL_DATABASE=baihe_wbq
     ports:
-      - "3306:3306"
+      - "3307:3306" 
     volumes:
       - db_data:/var/lib/mysql
       - ./sql/baihe_wbq.sql:/docker-entrypoint-initdb.d/baihe_wbq.sql:ro

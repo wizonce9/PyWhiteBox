@@ -88,8 +88,8 @@ export default {
 
     async checkUsername(username) {
       try {
-        const response = await fetch('http://localhost:28080/api/check-username', {
-        // const response = await fetch('http://124.70.51.109:28080/api/check-username', {
+        // const response = await fetch('http://localhost:28080/api/check-username', {
+        const response = await fetch('http://124.70.51.109:28080/api/check-username', {
           method: 'POST',
           body: JSON.stringify({ username }),
           headers: {
@@ -105,8 +105,8 @@ export default {
 
     async registerUser(registerForm) {
       // 发送请求将用户名和密码保存到数据库
-      const response = await fetch('http://localhost:28080/api/register', {
-      // const response = await fetch('http://124.70.51.109:28080/api/register', {
+      // const response = await fetch('http://localhost:28080/api/register', {
+      const response = await fetch('http://124.70.51.109:28080/api/register', {
         method: 'POST',
         body: JSON.stringify(registerForm),
         headers: {

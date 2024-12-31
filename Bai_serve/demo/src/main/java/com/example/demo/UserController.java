@@ -11,8 +11,8 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:8081")  // 允许来自8080端口的请求
-//@CrossOrigin(origins = "http://124.70.51.109:8080")  // 允许来自8080端口的请求
+//@CrossOrigin(origins = "http://localhost:8081")  // 允许来自8080端口的请求
+@CrossOrigin(origins = "http://124.70.51.109:8080")  // 允许来自8080端口的请求
 public class UserController {
 
     @Autowired

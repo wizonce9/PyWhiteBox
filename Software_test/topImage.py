@@ -1,8 +1,6 @@
 import ast
-import os
-
 import astor
-
+import os
 
 def transform_code(code):
     # 将代码解析为AST
@@ -14,14 +12,14 @@ def transform_code(code):
 
             # 处理 for 循环：for i in range(start, end, step)
             if (
-                    isinstance(node.iter, ast.Call) and
-                    isinstance(node.iter.func, ast.Name) and
-                    node.iter.func.id == 'range'
+                isinstance(node.iter, ast.Call) and 
+                isinstance(node.iter.func, ast.Name) and 
+                node.iter.func.id == 'range'
             ):
                 range_func = node.iter
                 args = range_func.args
                 num_args = len(args)
-
+                
                 # 提取 start, end, step
                 if num_args == 1:
                     start = ast.Constant(value=0)
@@ -38,12 +36,21 @@ def transform_code(code):
                     step = ast.Constant(value=1)
 
                 # 确定步长的增减方向
-                if isinstance(step, ast.Constant) and step.value > 0:
+                # 这里我们需要判断step是否为正或负，以决定条件和操作符
+                # 如果step是一个复杂表达式或变量，可能需要更复杂的处理
+                if isinstance(step, ast.Constant):
+                    step_value = step.value
+                    if step_value > 0:
+                        op = ast.Add()
+                        compare_op = ast.Lt()
+                    else:
+                        op = ast.Sub()
+                        compare_op = ast.Gt()
+                else:
+                    # 如果step不是常量，我们假设为正步长
+                    # 您可以根据需要扩展此逻辑
                     op = ast.Add()
                     compare_op = ast.Lt()
-                else:
-                    op = ast.Sub()
-                    compare_op = ast.Gt()
 
                 # 创建初始赋值节点
                 init_node = ast.Assign(
@@ -62,7 +69,7 @@ def transform_code(code):
                         ast.AugAssign(
                             target=ast.Name(id=node.target.id, ctx=ast.Store()),
                             op=op,
-                            value=ast.Constant(value=1)
+                            value=step  # 使用动态步长
                         )
                     ],
                     orelse=[]
@@ -95,21 +102,21 @@ def transform_code(code):
                         ]
                     ),
                     body=[
-                             ast.Assign(
-                                 targets=[ast.Name(id=node.target.id, ctx=ast.Store())],
-                                 value=ast.Subscript(
-                                     value=ast.Name(id=iter_name, ctx=ast.Load()),
-                                     slice=ast.Index(value=ast.Name(id=index_var, ctx=ast.Load())),
-                                     ctx=ast.Load()
-                                 )
-                             )
-                         ] + node.body + [
-                             ast.AugAssign(
-                                 target=ast.Name(id=index_var, ctx=ast.Store()),
-                                 op=ast.Add(),
-                                 value=ast.Constant(value=1)
-                             )
-                         ],
+                        ast.Assign(
+                            targets=[ast.Name(id=node.target.id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=ast.Name(id=iter_name, ctx=ast.Load()),
+                                slice=ast.Index(value=ast.Name(id=index_var, ctx=ast.Load())),
+                                ctx=ast.Load()
+                            )
+                        )
+                    ] + node.body + [
+                        ast.AugAssign(
+                            target=ast.Name(id=index_var, ctx=ast.Store()),
+                            op=ast.Add(),
+                            value=ast.Constant(value=1)
+                        )
+                    ],
                     orelse=[]
                 )
 
@@ -117,9 +124,9 @@ def transform_code(code):
 
             # 处理 for 循环：for item in iterable.splitlines()
             elif (
-                    isinstance(node.iter, ast.Call) and
-                    isinstance(node.iter.func, ast.Attribute) and
-                    node.iter.func.attr == 'splitlines'
+                isinstance(node.iter, ast.Call) and 
+                isinstance(node.iter.func, ast.Attribute) and 
+                node.iter.func.attr == 'splitlines'
             ):
                 iter_call = node.iter
                 if isinstance(iter_call.func.value, ast.Name):
@@ -160,35 +167,36 @@ def transform_code(code):
                         ]
                     ),
                     body=[
-                             ast.Assign(
-                                 targets=[ast.Name(id=node.target.id, ctx=ast.Store())],
-                                 value=ast.Subscript(
-                                     value=ast.Call(
-                                         func=ast.Attribute(
-                                             value=ast.Name(id=iter_name, ctx=ast.Load()),
-                                             attr='splitlines',
-                                             ctx=ast.Load()
-                                         ),
-                                         args=[],
-                                         keywords=[]
-                                     ),
-                                     slice=ast.Index(value=ast.Name(id=index_var, ctx=ast.Load())),
-                                     ctx=ast.Load()
-                                 )
-                             )
-                         ] + node.body + [
-                             ast.AugAssign(
-                                 target=ast.Name(id=index_var, ctx=ast.Store()),
-                                 op=ast.Add(),
-                                 value=ast.Constant(value=1)
-                             )
-                         ],
+                        ast.Assign(
+                            targets=[ast.Name(id=node.target.id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=ast.Call(
+                                    func=ast.Attribute(
+                                        value=ast.Name(id=iter_name, ctx=ast.Load()),
+                                        attr='splitlines',
+                                        ctx=ast.Load()
+                                    ),
+                                    args=[],
+                                    keywords=[]
+                                ),
+                                slice=ast.Index(value=ast.Name(id=index_var, ctx=ast.Load())),
+                                ctx=ast.Load()
+                            )
+                        )
+                    ] + node.body + [
+                        ast.AugAssign(
+                            target=ast.Name(id=index_var, ctx=ast.Store()),
+                            op=ast.Add(),
+                            value=ast.Constant(value=1)
+                        )
+                    ],
                     orelse=[]
                 )
 
                 return [init_node, cond_node]
 
             return node
+
 
     # 创建一个自定义的NodeTransformer来拆分复杂的if条件并使用elif
     class IfConditionSplitter(ast.NodeTransformer):
@@ -261,10 +269,14 @@ def transform_code(code):
 
                     # 创建嵌套的 while 结构
                     nested_while = node.body
-                    for condition in reversed(conditions):
-                        nested_while = [ast.While(test=condition, body=nested_while, orelse=[])]
+                    if len(conditions) == 2:
+                        condition1, condition2 = conditions
 
-                    return nested_while[0]
+                        new_while = ast.While(test=condition1, body=[
+                            ast.If(test=condition2, body=nested_while, orelse=[ast.Break()])
+                        ], orelse=[])
+
+                        return new_while
                 elif isinstance(node.test.op, ast.Or):
                     # 处理 or 条件
                     conditions = self.split_or_conditions(node.test)
@@ -304,11 +316,17 @@ def transform_code(code):
                     conditions.extend(self.split_or_conditions(value))
                 return conditions
             return [node]
+        
+
+
 
     # 应用所有转换器
     tree = ForLoopTransformer().visit(tree)
     tree = IfConditionSplitter().visit(tree)
     tree = WhileConditionSplitter().visit(tree)
+
+    # 修复位置和上下文
+    ast.fix_missing_locations(tree)
 
     # 将AST转换回代码
     new_code = astor.to_source(tree)
@@ -341,7 +359,7 @@ def process_flowchart(flowchart_code):
 
     # Split the code into lines
     lines = flowchart_code.strip().split('\n')
-
+    
     node_lines = []
     edge_lines = []
 
@@ -383,9 +401,12 @@ def process_flowchart(flowchart_code):
     # Process nodes with 'if' in operation
     new_nodes = copy.deepcopy(nodes)
     new_edges = [edge.copy() for edge in edges]
-    node_id_counter = max([int(re.findall(r'\d+', nid)[0]) for nid in nodes if re.findall(r'\d+', nid)]) + 1
+    node_id_counter = max(
+        [int(re.findall(r'\d+', nid)[0]) for nid in nodes if re.findall(r'\d+', nid)],
+        default=10000
+    ) + 1
 
-    for node_id, node in nodes.items():
+    for node_id, node in list(nodes.items()):
         if node['type'] == 'operation' and 'if' in node['content']:
             # Extract operation and condition
             op_content = node['content']
@@ -395,10 +416,14 @@ def process_flowchart(flowchart_code):
                 operation = operation.strip()
                 condition = condition.strip()
 
-                # Create new condition node
+                # 1. Remove unnecessary parentheses around the condition
+                if condition.startswith('(') and condition.endswith(')'):
+                    condition = condition[1:-1].strip()
+
+                # 2. Create a new condition node with single pair of parentheses
                 new_cond_id = f"cond{node_id_counter}"
                 node_id_counter += 1
-                new_nodes[new_cond_id] = {'type': 'condition', 'content': f'if {condition}'}
+                new_nodes[new_cond_id] = {'type': 'condition', 'content': f'if ({condition})'}
 
                 # Update the original node to only contain the operation
                 new_nodes[node_id]['content'] = operation
@@ -408,7 +433,7 @@ def process_flowchart(flowchart_code):
                     if edge['to'] == node_id:
                         edge['to'] = new_cond_id
 
-                # Redirect outgoing edges from the original operation node to the new condition node
+                # Remove outgoing edges from the original operation node
                 original_outgoing_edges = [edge for edge in new_edges if edge['from'] == node_id]
                 new_edges = [edge for edge in new_edges if edge not in original_outgoing_edges]
 
@@ -418,6 +443,10 @@ def process_flowchart(flowchart_code):
                 # Reconnect the original outgoing edges from the operation node
                 for edge in original_outgoing_edges:
                     new_edges.append({'from': node_id, 'to': edge['to'], 'label': edge.get('label')})
+
+                # Add 'no' edges from the condition node to the same nodes as the operation node
+                for edge in original_outgoing_edges:
+                    new_edges.append({'from': new_cond_id, 'to': edge['to'], 'label': 'no'})
 
             else:
                 continue  # Skip if the pattern doesn't match
@@ -432,220 +461,6 @@ def process_flowchart(flowchart_code):
         updated_code += f"{edge['from']}{label}->{edge['to']}\n"
 
     return updated_code.strip()
-def modify_flowchart_code(code: str) -> str:
-    import re
-    from collections import defaultdict, deque
-
-    # Split code lines and initialize nodes and edges
-    lines = code.strip().split("\n")
-    nodes = {}
-    edges = []
-    for line in lines:
-        line = line.strip()
-        if "=>" in line:
-            node_id, node_info = line.split("=>", 1)
-            nodes[node_id.strip()] = node_info.strip()
-        elif "->" in line:
-            edges.append(line.strip())
-
-    # Build adjacency lists for traversal
-    outgoing_edges = defaultdict(list)
-    incoming_edges = defaultdict(list)
-    for edge in edges:
-        # Match edge with optional label, e.g., cond8947(yes)->cond8980
-        match = re.match(r'(\w+)(\(([^)]+)\))?->(\w+)', edge)
-        if match:
-            from_node, _, label, to_node = match.groups()
-            label = label.strip() if label else None
-            outgoing_edges[from_node].append((to_node, label))
-            incoming_edges[to_node].append((from_node, label))
-        else:
-            raise ValueError(f"Invalid edge line: {edge}")
-
-    # Ensure all nodes are in outgoing_edges and incoming_edges
-    for node_id in nodes:
-        outgoing_edges[node_id]  # Initializes empty list if no outgoing edges
-        incoming_edges[node_id]  # Initializes empty list if no incoming edges
-
-    # Helper functions to modify edges
-    def remove_edge(from_node, to_node, label=None):
-        """Removes an edge from outgoing and incoming adjacency lists."""
-        if label:
-            outgoing_edges[from_node] = [
-                (t, l) for (t, l) in outgoing_edges[from_node] if not (t == to_node and l == label)
-            ]
-            incoming_edges[to_node] = [
-                (f, l) for (f, l) in incoming_edges[to_node] if not (f == from_node and l == label)
-            ]
-        else:
-            outgoing_edges[from_node] = [
-                (t, l) for (t, l) in outgoing_edges[from_node] if t != to_node
-            ]
-            incoming_edges[to_node] = [
-                (f, l) for (f, l) in incoming_edges[to_node] if f != from_node
-            ]
-
-    def add_edge(from_node, to_node, label):
-        """Adds an edge to outgoing and incoming adjacency lists."""
-        outgoing_edges[from_node].append((to_node, label))
-        incoming_edges[to_node].append((from_node, label))
-
-    # Identify all 'break' nodes
-    break_nodes = [node_id for node_id, info in nodes.items() if 'break' in info.lower()]
-
-    # Function to find the innermost 'while True' loop for a given 'break' node
-    def find_innermost_loop(break_node_id):
-        visited = set()
-        queue = deque()
-        queue.extend(incoming_edges[break_node_id])
-        while queue:
-            from_node, _ = queue.popleft()
-            if from_node in visited:
-                continue
-            visited.add(from_node)
-            node_info = nodes.get(from_node, '').lower()
-            if 'while true' in node_info:
-                return from_node
-            else:
-                queue.extend(incoming_edges[from_node])
-        return None  # No enclosing 'while True' loop found
-
-    # Function to find the next node after the loop exit
-    def find_loop_exit_next_node(loop_node_id):
-        # Find the node connected via 'no' label
-        loop_exit_nodes = [
-            to_node for to_node, label in outgoing_edges[loop_node_id]
-            if label == 'no'
-        ]
-        if not loop_exit_nodes:
-            return None
-        loop_exit_node_id = loop_exit_nodes[0]  # Assuming only one exit node
-
-        # Traverse 'no' edges to find the ultimate loop exit node
-        ultimate_exit_node_id = loop_exit_node_id
-        visited_exit = set()
-        while True:
-            no_edges = [
-                to_node for to_node, label in outgoing_edges[ultimate_exit_node_id]
-                if label == 'no'
-            ]
-            if not no_edges:
-                break
-            next_exit_node_id = no_edges[0]
-            if next_exit_node_id in visited_exit:
-                break  # Prevent infinite loop in case of cycles
-            visited_exit.add(next_exit_node_id)
-            ultimate_exit_node_id = next_exit_node_id
-        return ultimate_exit_node_id
-
-    # Process each 'break' node
-    for break_node_id in break_nodes:
-        # Find the 'if' node(s) before the 'break' node
-        if_nodes = [
-            from_node for from_node, label in incoming_edges[break_node_id]
-            if 'if' in nodes[from_node].lower()
-        ]
-        if not if_nodes:
-            continue  # No 'if' node found before 'break', skip
-        # Handle all 'if' nodes leading to this 'break'
-        for break_if_node_id in if_nodes:
-            # Find the innermost 'while True' loop
-            innermost_loop_node_id = find_innermost_loop(break_node_id)
-            if not innermost_loop_node_id:
-                continue  # No enclosing 'while True' loop found, skip
-
-            # Find the node after the 'while True' loop
-            ultimate_exit_node_id = find_loop_exit_next_node(innermost_loop_node_id)
-            if not ultimate_exit_node_id:
-                continue  # No exit node found for 'while True' loop, skip
-
-            # Get the label of the edge from 'break_if_node_id' to 'break_node_id'
-            edge_label = None
-            for to_node, label in outgoing_edges[break_if_node_id]:
-                if to_node == break_node_id:
-                    edge_label = label
-                    break
-
-            # Redirect the edge from the 'if' node before 'break' to the ultimate loop exit node
-            remove_edge(break_if_node_id, break_node_id, edge_label)
-            add_edge(break_if_node_id, ultimate_exit_node_id, edge_label)
-
-        # Remove the 'break' node and its edges
-        nodes.pop(break_node_id, None)
-        outgoing_edges.pop(break_node_id, None)
-        incoming_edges.pop(break_node_id, None)
-
-    while_true_nodes = [
-        node_id for node_id, info in nodes.items() if 'while true' in info.lower()
-    ]
-    for while_node_id in while_true_nodes:
-        # Find the first node it points to via the '(yes)' edge
-        yes_targets = [
-            to_node for to_node, label in outgoing_edges[while_node_id]
-            if label == 'yes'
-        ]
-        if not yes_targets:
-            continue  # No '(yes)' edge found, cannot replace
-        first_node_id = yes_targets[0]
-
-        # Find the node after the 'while True' loop (edge labeled '(no)')
-        loop_exit_nodes = [
-            to_node for to_node, label in outgoing_edges[while_node_id]
-            if label == 'no'
-        ]
-        if not loop_exit_nodes:
-            continue  # No '(no)' edge found, cannot determine loop exit
-        loop_exit_node_id = loop_exit_nodes[0]
-
-        # Traverse 'no' edges to find the ultimate loop exit node
-        ultimate_exit_node_id = loop_exit_node_id
-        visited_exit = set()
-        while True:
-            no_edges = [
-                to_node for to_node, label in outgoing_edges[ultimate_exit_node_id]
-                if label == 'no'
-            ]
-            if not no_edges:
-                break
-            next_exit_node_id = no_edges[0]
-            if next_exit_node_id in visited_exit:
-                break  # Prevent infinite loop in case of cycles
-            visited_exit.add(next_exit_node_id)
-            ultimate_exit_node_id = next_exit_node_id
-
-        # Redirect incoming edges to 'while True' node to the first 'yes' target node
-        for from_node, edges_list in list(outgoing_edges.items()):
-            new_edges = []
-            for to_node, label in edges_list:
-                if to_node == while_node_id:
-                    new_edges.append((first_node_id, label))
-                    incoming_edges[first_node_id].append((from_node, label))
-                else:
-                    new_edges.append((to_node, label))
-            outgoing_edges[from_node] = new_edges
-
-        # Remove the 'while True' node and its edges
-        nodes.pop(while_node_id, None)
-        outgoing_edges.pop(while_node_id, None)
-        incoming_edges.pop(while_node_id, None)
-
-    # Reconstruct edges list
-    new_edges = []
-    for from_node, edges_list in outgoing_edges.items():
-        for to_node, label in edges_list:
-            edge_str = f"{from_node}"
-            if label:
-                edge_str += f"({label})"
-            edge_str += f"->{to_node}"
-            new_edges.append(edge_str)
-
-    # Reassemble the code
-    modified_code = "\n".join([
-        f"{node_id}=>{info}" for node_id, info in nodes.items()
-    ])
-    modified_code += "\n" + "\n".join(new_edges)
-
-    return modified_code
 
 def modify_flowchart_code(code: str) -> str:
     import re
@@ -667,7 +482,6 @@ def modify_flowchart_code(code: str) -> str:
     outgoing_edges = defaultdict(list)
     incoming_edges = defaultdict(list)
     for edge in edges:
-        # Match edge with optional label, e.g., cond8947(yes)->cond8980
         match = re.match(r'(\w+)(\(([^)]+)\))?->(\w+)', edge)
         if match:
             from_node, _, label, to_node = match.groups()
@@ -677,38 +491,10 @@ def modify_flowchart_code(code: str) -> str:
         else:
             raise ValueError(f"Invalid edge line: {edge}")
 
-    # Ensure all nodes are in outgoing_edges and incoming_edges
-    for node_id in nodes:
-        outgoing_edges[node_id]  # Initializes empty list if no outgoing edges
-        incoming_edges[node_id]  # Initializes empty list if no incoming edges
-
-    # Helper functions to modify edges
-    def remove_edge(from_node, to_node, label=None):
-        """Removes an edge from outgoing and incoming adjacency lists."""
-        if label:
-            outgoing_edges[from_node] = [
-                (t, l) for (t, l) in outgoing_edges[from_node] if not (t == to_node and l == label)
-            ]
-            incoming_edges[to_node] = [
-                (f, l) for (f, l) in incoming_edges[to_node] if not (f == from_node and l == label)
-            ]
-        else:
-            outgoing_edges[from_node] = [
-                (t, l) for (t, l) in outgoing_edges[from_node] if t != to_node
-            ]
-            incoming_edges[to_node] = [
-                (f, l) for (f, l) in incoming_edges[to_node] if f != from_node
-            ]
-
-    def add_edge(from_node, to_node, label):
-        """Adds an edge to outgoing and incoming adjacency lists."""
-        outgoing_edges[from_node].append((to_node, label))
-        incoming_edges[to_node].append((from_node, label))
-
     # Identify all 'break' nodes
     break_nodes = [node_id for node_id, info in nodes.items() if 'break' in info.lower()]
 
-    # Function to find the innermost 'while True' loop for a given 'break' node
+    # Function to find the innermost 'while' loop for a given 'break' node
     def find_innermost_loop(break_node_id):
         visited = set()
         queue = deque()
@@ -719,130 +505,52 @@ def modify_flowchart_code(code: str) -> str:
                 continue
             visited.add(from_node)
             node_info = nodes.get(from_node, '').lower()
-            if 'while true' in node_info:
+            if 'while' in node_info:
                 return from_node
             else:
                 queue.extend(incoming_edges[from_node])
-        return None  # No enclosing 'while True' loop found
+        return None
 
-    # Function to find the next node after the loop exit
-    def find_loop_exit_next_node(loop_node_id):
-        # Find the node connected via 'no' label
-        loop_exit_nodes = [
-            to_node for to_node, label in outgoing_edges[loop_node_id]
-            if label == 'no'
+    # Function to remove an edge
+    def remove_edge(from_node, to_node):
+        outgoing_edges[from_node] = [
+            (to, label) for to, label in outgoing_edges[from_node] if to != to_node
         ]
-        if not loop_exit_nodes:
-            return None
-        loop_exit_node_id = loop_exit_nodes[0]  # Assuming only one exit node
 
-        # Traverse 'no' edges to find the ultimate loop exit node
-        ultimate_exit_node_id = loop_exit_node_id
-        visited_exit = set()
-        while True:
-            no_edges = [
-                to_node for to_node, label in outgoing_edges[ultimate_exit_node_id]
-                if label == 'no'
-            ]
-            if not no_edges:
-                break
-            next_exit_node_id = no_edges[0]
-            if next_exit_node_id in visited_exit:
-                break  # Prevent infinite loop in case of cycles
-            visited_exit.add(next_exit_node_id)
-            ultimate_exit_node_id = next_exit_node_id
-        return ultimate_exit_node_id
+    # Function to add an edge
+    def add_edge(from_node, to_node, label=None):
+        outgoing_edges[from_node].append((to_node, label))
 
     # Process each 'break' node
     for break_node_id in break_nodes:
-        # Find the 'if' node(s) before the 'break' node
+        # Find the innermost 'while' loop
+        innermost_loop_node_id = find_innermost_loop(break_node_id)
+        if not innermost_loop_node_id:
+            continue
+
+        # Find the exit node after the 'while' loop
+        loop_exit_nodes = [
+            to_node for to_node, label in outgoing_edges[innermost_loop_node_id]
+            if label == 'no'
+        ]
+        if not loop_exit_nodes:
+            continue
+        loop_exit_node_id = loop_exit_nodes[0]  # Assuming only one exit node
+
+        # Find the 'if' node(s) leading to the 'break' node
         if_nodes = [
             from_node for from_node, label in incoming_edges[break_node_id]
             if 'if' in nodes[from_node].lower()
         ]
-        if not if_nodes:
-            continue  # No 'if' node found before 'break', skip
-        # Handle all 'if' nodes leading to this 'break'
         for break_if_node_id in if_nodes:
-            # Find the innermost 'while True' loop
-            innermost_loop_node_id = find_innermost_loop(break_node_id)
-            if not innermost_loop_node_id:
-                continue  # No enclosing 'while True' loop found, skip
-
-            # Find the node after the 'while True' loop
-            ultimate_exit_node_id = find_loop_exit_next_node(innermost_loop_node_id)
-            if not ultimate_exit_node_id:
-                continue  # No exit node found for 'while True' loop, skip
-
-            # Get the label of the edge from 'break_if_node_id' to 'break_node_id'
-            edge_label = None
-            for to_node, label in outgoing_edges[break_if_node_id]:
-                if to_node == break_node_id:
-                    edge_label = label
-                    break
-
-            # Redirect the edge from the 'if' node before 'break' to the ultimate loop exit node
-            remove_edge(break_if_node_id, break_node_id, edge_label)
-            add_edge(break_if_node_id, ultimate_exit_node_id, edge_label)
+            # Redirect the 'no' edge of the 'if' node to the operation after 'break'
+            remove_edge(break_if_node_id, break_node_id)
+            add_edge(break_if_node_id, loop_exit_node_id, 'no')
 
         # Remove the 'break' node and its edges
         nodes.pop(break_node_id, None)
         outgoing_edges.pop(break_node_id, None)
         incoming_edges.pop(break_node_id, None)
-
-    while_true_nodes = [
-        node_id for node_id, info in nodes.items() if 'while true' in info.lower()
-    ]
-    for while_node_id in while_true_nodes:
-        # Find the first node it points to via the '(yes)' edge
-        yes_targets = [
-            to_node for to_node, label in outgoing_edges[while_node_id]
-            if label == 'yes'
-        ]
-        if not yes_targets:
-            continue  # No '(yes)' edge found, cannot replace
-        first_node_id = yes_targets[0]
-
-        # Find the node after the 'while True' loop (edge labeled '(no)')
-        loop_exit_nodes = [
-            to_node for to_node, label in outgoing_edges[while_node_id]
-            if label == 'no'
-        ]
-        if not loop_exit_nodes:
-            continue  # No '(no)' edge found, cannot determine loop exit
-        loop_exit_node_id = loop_exit_nodes[0]
-
-        # Traverse 'no' edges to find the ultimate loop exit node
-        ultimate_exit_node_id = loop_exit_node_id
-        visited_exit = set()
-        while True:
-            no_edges = [
-                to_node for to_node, label in outgoing_edges[ultimate_exit_node_id]
-                if label == 'no'
-            ]
-            if not no_edges:
-                break
-            next_exit_node_id = no_edges[0]
-            if next_exit_node_id in visited_exit:
-                break  # Prevent infinite loop in case of cycles
-            visited_exit.add(next_exit_node_id)
-            ultimate_exit_node_id = next_exit_node_id
-
-        # Redirect incoming edges to 'while True' node to the first 'yes' target node
-        for from_node, edges_list in list(outgoing_edges.items()):
-            new_edges = []
-            for to_node, label in edges_list:
-                if to_node == while_node_id:
-                    new_edges.append((first_node_id, label))
-                    incoming_edges[first_node_id].append((from_node, label))
-                else:
-                    new_edges.append((to_node, label))
-            outgoing_edges[from_node] = new_edges
-
-        # Remove the 'while True' node and its edges
-        nodes.pop(while_node_id, None)
-        outgoing_edges.pop(while_node_id, None)
-        incoming_edges.pop(while_node_id, None)
 
     # Reconstruct edges list
     new_edges = []
@@ -855,17 +563,41 @@ def modify_flowchart_code(code: str) -> str:
             new_edges.append(edge_str)
 
     # Reassemble the code
-    modified_code = "\n".join([
-        f"{node_id}=>{info}" for node_id, info in nodes.items()
-    ])
+    modified_code = "\n".join([f"{node_id}=>{info}" for node_id, info in nodes.items()])
     modified_code += "\n" + "\n".join(new_edges)
 
     return modified_code
 
+def unify_end_node(flowchart_code):
+    # 将输入的流程图代码按行分割成列表
+    lines = flowchart_code.split('\n')
+    
+    # 找到所有的 end 节点，并记录它们的名称
+    end_nodes = [line for line in lines if '=>end:' in line]
+    
+    # 如果没有或只有一个 end 节点，直接返回原代码
+    if len(end_nodes) <= 1:
+        return flowchart_code
+    
+    # 统一所有 end 节点的名称为第一个 end 节点的名称
+    unified_end = end_nodes[0].split('=>')[0]
+    
+    # 构造新的流程图代码
+    new_lines = []
+    for line in lines:
+        if '->' in line:
+            for end_node in end_nodes:
+                end_node_name = end_node.split('=>')[0]
+                line = line.replace('->' + end_node_name, '->' + unified_end)
+        if '=>end:' in line and not line.startswith(unified_end):
+            continue  # 跳过额外的 end 节点定义
+        new_lines.append(line)
+    
+    # 返回修改后的流程图代码
+    return '\n'.join(new_lines)
 
 import re
 from collections import defaultdict
-
 
 def parse_flowchart(flowchart_code):
     """
@@ -906,9 +638,8 @@ def parse_flowchart(flowchart_code):
                 if edge_match:
                     from_node, to_node = edge_match.groups()
                     edges.append((from_node, to_node, None))
-
+    
     return nodes, edges
-
 
 def find_duplicate_nodes(nodes):
     """
@@ -925,7 +656,6 @@ def find_duplicate_nodes(nodes):
         key = (attrs['type'], attrs['description'])
         description_map[key].append(node_id)
     return description_map
-
 
 def merge_duplicate_nodes(nodes, edges):
     """
@@ -960,7 +690,7 @@ def merge_duplicate_nodes(nodes, edges):
             merged_edges.append((from_node, merged_to_node, condition))
         else:
             merged_edges.append((from_node, to_node, condition))
-
+    
     # 移除来自重复节点的边
     merged_edges = [
         (from_node, to_node, condition)
@@ -972,7 +702,6 @@ def merge_duplicate_nodes(nodes, edges):
     merged_nodes = {nid: attrs for nid, attrs in nodes.items() if nid not in duplicates}
 
     return merged_nodes, merged_edges
-
 
 def generate_flowchart_code(nodes, edges):
     """
@@ -995,7 +724,6 @@ def generate_flowchart_code(nodes, edges):
             lines.append(f"{from_node}->{to_node}")
     return '\n'.join(lines)
 
-
 def optimize_flowchart_code(flowchart_code):
     """
     优化流程图代码，消除重复的节点并删除相关边。
@@ -1017,10 +745,8 @@ def optimize_flowchart_code(flowchart_code):
 
     return optimized_flowchart_code
 
-
 import re
 from collections import defaultdict
-
 
 def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
     """
@@ -1036,7 +762,8 @@ def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
     lines = flowchart_str.strip().split('\n')
     node_definitions = {}
     connections = []
-    node_pattern = re.compile(r'(\w+)=>(\w+):\s*(.+)')
+    # 修改正则表达式以捕获完整的节点类型
+    node_pattern = re.compile(r'(\w+)=>([^:]+):\s*(.+)')
     connection_pattern = re.compile(r'(\w+\??)(\([\w\s]+\))?->(\w+)')
 
     # 解析节点定义
@@ -1044,7 +771,7 @@ def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
         node_match = node_pattern.match(line)
         if node_match:
             node_id, node_type, label = node_match.groups()
-            node_definitions[node_id] = (node_type.strip().lower(), label.strip())
+            node_definitions[node_id] = (node_type.strip(), label.strip())
         else:
             connections.append(line.strip())
 
@@ -1062,9 +789,11 @@ def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
             for dup in nodes[1:]:
                 node_mapping[dup] = representative
 
-    # 更新连接，并移除重复的连接线和自循环连接
+    # 更新连接，并移除重复的连接线、自循环连接和长度为2的循环
     unique_connections = set()
     updated_connections = []
+    edges = defaultdict(set)
+
     for conn in connections:
         # 替换节点ID
         def replace_node(match):
@@ -1072,8 +801,11 @@ def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
             condition = match.group(2) if match.group(2) else ''
             to_node = match.group(3)
             # 替换 from_node 和 to_node 如果它们在映射中
-            from_node_replaced = node_mapping.get(from_node, from_node)
+            from_node_replaced = node_mapping.get(from_node.rstrip('?'), from_node.rstrip('?'))
             to_node_replaced = node_mapping.get(to_node, to_node)
+            # 保留 '?' 后缀
+            if from_node.endswith('?'):
+                from_node_replaced += '?'
             return f'{from_node_replaced}{condition}->{to_node_replaced}'
 
         updated_conn = connection_pattern.sub(replace_node, conn).strip()
@@ -1082,15 +814,27 @@ def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
         updated_conn = re.sub(r'\s+', ' ', updated_conn)
 
         # 解析连接以获取源节点和目标节点
-        conn_match = re.match(r'(\w+)(\([\w\s]+\))?->(\w+)', updated_conn)
+        conn_match = re.match(r'(\w+\??)(\([\w\s]+\))?->(\w+)', updated_conn)
         if conn_match:
             from_node = conn_match.group(1)
             condition = conn_match.group(2) if conn_match.group(2) else ''
             to_node = conn_match.group(3)
 
+            # Remove '?' suffix for node IDs when checking for cycles and self-loops
+            from_node_id = from_node.rstrip('?')
+            to_node_id = to_node
+
             # 检查是否为自循环连接
-            if from_node == to_node:
+            if from_node_id == to_node_id:
                 continue  # 跳过自循环连接
+
+            # 检查是否存在一个反向连接，形成长度为2的循环
+            if to_node_id in edges and from_node_id in edges[to_node_id]:
+                # 跳过此连接以避免形成长度为2的循环
+                continue
+
+            # 添加边到edges
+            edges[from_node_id].add(to_node_id)
 
             # 创建一个标准化的连接键，包括源节点、条件和目标节点
             connection_key = (from_node, condition, to_node)
@@ -1123,155 +867,94 @@ def merge_duplicate_nodes_and_remove_duplicate_connections(flowchart_str):
 
     return '\n'.join(new_flowchart_lines)
 
-def parse_flowchart_continue(flowchart_code):
-    """
-    解析流程图代码，找到所有的 continue 节点，并将它们连接到对应的循环条件节点。
-    同时保留原始边上的条件标签（如 yes、no）。
-
-    参数:
-    flowchart_code (str): 流程图的代码字符串。
-
-    返回:
-    str: 修改后的流程图代码，节点先定义，边后定义，并保留边上的条件标签。
-    """
-    from collections import deque, defaultdict
-    import re
-
-    nodes = {}
+def modify_flowchart(flowchart_code):
+    # 将流程图代码拆分为行
+    lines = flowchart_code.strip().split('\n')
+    # 分离节点定义和边
+    node_defs = []
     edges = []
-    edge_set = set()  # 用于避免重复的边
-
-    # 正则表达式匹配带条件的边，例如 cond12741(yes)->op12769
-    edge_pattern = re.compile(r'(\w+)(\(([^)]+)\))?->(\w+)')
-
-    # 分析每一行，区分节点和边
-    for line in flowchart_code.splitlines():
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue  # 忽略空行和注释
+    for line in lines:
         if '=>' in line:
-            # 节点定义
-            parts = line.split('=>', 1)
-            node_id = parts[0].strip()
-            rest = parts[1].strip()
-            if ':' in rest:
-                node_type, label = rest.split(':', 1)
-                nodes[node_id] = {'type': node_type.strip(), 'label': label.strip()}
+            node_defs.append(line.strip())
         elif '->' in line:
-            # 边定义
-            match = edge_pattern.match(line)
-            if match:
-                from_node = match.group(1).strip()
-                label = match.group(3).strip() if match.group(3) else None
-                to_node = match.group(4).strip()
-                edges.append({'from': from_node, 'to': to_node, 'label': label})
-                edge_set.add((from_node, to_node, label))
+            edges.append(line.strip())
+        else:
+            continue  # 忽略空行或无效行
 
-    # 构建反向邻接表，用于从子节点追溯到父节点
-    reverse_adj = defaultdict(list)
+    # 构建节点名称到定义的映射
+    nodes = {}
+    for node_def in node_defs:
+        node_name, rest = node_def.split('=>', 1)
+        nodes[node_name.strip()] = rest.strip()
+
+    # 构建边的数据结构
+    outgoing_edges = {}  # 节点名 -> [(目标节点, 边标签)]
+    incoming_edges = {}  # 节点名 -> [(源节点, 边标签)]
+
     for edge in edges:
-        reverse_adj[edge['to']].append(edge['from'])
-
-    # 识别循环条件节点（以 for 或 while 开头的条件节点）
-    loop_conditions = [
-        node_id for node_id, node in nodes.items()
-        if node['type'] == 'condition' and (node['label'].startswith('for') or node['label'].startswith('while'))
-    ]
-
-    # 识别所有的 continue 节点
-    continue_nodes = [
-        node_id for node_id, node in nodes.items()
-        if node['label'] == 'continue'
-    ]
-
-    # 为每个 continue 节点找到最近的循环条件节点，并添加边连接
-    for cont_node in continue_nodes:
-        visited = set()
-        queue = deque()
-        queue.append(cont_node)
-        found = None
-        while queue:
-            current = queue.popleft()
-            if current in visited:
-                continue
-            visited.add(current)
-            if current in loop_conditions:
-                found = current
-                break
-            # 通过反向邻接表遍历父节点
-            for parent in reverse_adj.get(current, []):
-                if parent not in visited:
-                    queue.append(parent)
-        if found:
-            # 添加新边，且不重复
-            new_edge = {'from': cont_node, 'to': found, 'label': None}
-            if (new_edge['from'], new_edge['to'], new_edge['label']) not in edge_set:
-                edges.append(new_edge)
-                edge_set.add((new_edge['from'], new_edge['to'], new_edge['label']))
-
-    # 将节点和边转换回流程图代码的格式
-    nodes_output = []
-    edges_output = []
-
-    # 首先输出节点，保持输入顺序
-    for line in flowchart_code.splitlines():
-        line = line.strip()
-        if not line or line.startswith('#'):
+        if '->' not in edge:
             continue
-        if '=>' in line:
-            node_id = line.split('=>', 1)[0].strip()
-            if node_id in nodes:
-                node = nodes[node_id]
-                nodes_output.append(f"{node_id}=>{node['type']}: {node['label']}")
+        if '(' in edge and ')' in edge:
+            from_node_with_label, to_node = edge.split('->')
+            from_node, label = from_node_with_label.split('(')
+            label = label.rstrip(')')
+            from_node = from_node.strip()
+            to_node = to_node.strip()
+            edge_label = label
+        else:
+            from_node, to_node = edge.split('->')
+            from_node = from_node.strip()
+            to_node = to_node.strip()
+            edge_label = None
 
-    # 然后输出边，保持输入顺序，并保留条件标签
-    for line in flowchart_code.splitlines():
-        line = line.strip()
-        if '->' in line:
-            match = edge_pattern.match(line)
-            if match:
-                from_node = match.group(1).strip()
-                label = match.group(3).strip() if match.group(3) else None
-                to_node = match.group(4).strip()
-                # 查找对应的边并保留标签
-                for edge in edges:
-                    if edge['from'] == from_node and edge['to'] == to_node and edge['label'] == label:
-                        if label:
-                            edges_output.append(f"{from_node}({label})->{to_node}")
-                        else:
-                            edges_output.append(f"{from_node}->{to_node}")
-                        break
+        # 更新边的数据结构
+        outgoing_edges.setdefault(from_node, []).append((to_node, edge_label))
+        incoming_edges.setdefault(to_node, []).append((from_node, edge_label))
 
-    # 添加新添加的边（从 continue 到循环条件），不保留标签
-    for edge in edges:
-        if edge['from'] in continue_nodes and edge['to'] in loop_conditions:
-            # 检查是否已经在输出中定义
-            exists = False
-            for existing_edge in edges_output:
-                # 解析 existing_edge 来比较
-                existing_match = edge_pattern.match(existing_edge)
-                if existing_match:
-                    existing_from = existing_match.group(1).strip()
-                    existing_to = existing_match.group(4).strip()
-                    existing_label = existing_match.group(3).strip() if existing_match.group(3) else None
-                    if existing_from == edge['from'] and existing_to == edge['to'] and existing_label == edge['label']:
-                        exists = True
-                        break
-            if not exists:
-                # 添加无标签的边
-                edges_output.append(f"{edge['from']}->{edge['to']}")
+    # 找到所有的'continue'节点
+    continue_nodes = [node_name for node_name, definition in nodes.items() if 'continue' in definition]
 
-    # 移除可能的重复边
-    edges_output = list(dict.fromkeys(edges_output))
+    for continue_node in continue_nodes:
+        # 假设循环的步长节点是'op17002'
+        loop_increment_node = None
+        for node_name, definition in nodes.items():
+            if 'operation' in definition and 'i += 1' in definition:
+                loop_increment_node = node_name
+                break
+        if not loop_increment_node:
+            continue  # 如果找不到步长节点，跳过
 
-    # 合并节点和边输出
-    final_output = '\n'.join(nodes_output + edges_output)
+        # 找到'continue'节点的前驱节点
+        predecessors = incoming_edges.get(continue_node, [])
 
-    return final_output
+        for from_node, edge_label in predecessors:
+            # 更新前驱节点的边，指向步长节点
+            edges_list = outgoing_edges.get(from_node, [])
+            # 移除指向'continue'节点的边
+            edges_list = [ (to_node, label) for (to_node, label) in edges_list if not (to_node == continue_node and label == edge_label)]
+            outgoing_edges[from_node] = edges_list
+            # 添加指向步长节点的边
+            outgoing_edges[from_node].append((loop_increment_node, edge_label))
+            incoming_edges.setdefault(loop_increment_node, []).append((from_node, edge_label))
 
+        # 移除'continue'节点和相关的边
+        nodes.pop(continue_node, None)
+        outgoing_edges.pop(continue_node, None)
+        incoming_edges.pop(continue_node, None)
+
+    # 重新构建流程图代码
+    new_node_defs = [f"{node_name}=>{definition}" for node_name, definition in nodes.items()]
+    new_edges = []
+    for from_node, edges_list in outgoing_edges.items():
+        for to_node, edge_label in edges_list:
+            if edge_label:
+                new_edges.append(f"{from_node}({edge_label})->{to_node}")
+            else:
+                new_edges.append(f"{from_node}->{to_node}")
+
+    return '\n'.join(new_node_defs + new_edges)
 
 from graphviz import Digraph
-
 
 def generate_and_save_flowchart(flowchart_code, output_filename='flowchart_output'):
     """
@@ -1283,7 +966,7 @@ def generate_and_save_flowchart(flowchart_code, output_filename='flowchart_outpu
     """
 
     # 定义保存图片的目录
-    save_directory = r".\SoftWare_test\pic_create"
+    save_directory = r"."
 
     # 创建一个Graphviz的Digraph对象
     dot = Digraph()
@@ -1357,3 +1040,62 @@ def generate_and_save_flowchart(flowchart_code, output_filename='flowchart_outpu
     print(f"Flowchart generated and saved as '{output_filepath}.png'")
 
     return f"{output_filepath}.png"
+
+def remove_false_edges(flowchart_code):
+    """
+    解析流程图代码，识别始终为真的条件（如 'while True'），并删除这些条件的假分支边。
+
+    参数:
+    flowchart_code (str): 原始的流程图代码。
+
+    返回:
+    str: 修改后的流程图代码，已删除不可能发生的假分支边。
+    """
+    # 将流程图代码按行分割
+    lines = flowchart_code.split('\n')
+    
+    # 存储节点和边
+    nodes = {}
+    edges = []
+    # 存储始终为真的条件节点ID
+    always_true_conditions = set()
+    
+    # 解析节点和边
+    for line in lines:
+        line = line.strip()
+        if '=>' in line:
+            # 解析节点
+            node_id, rest = line.split('=>', 1)
+            node_type, label = rest.split(':', 1)
+            node_id = node_id.strip()
+            node_type = node_type.strip()
+            label = label.strip()
+            nodes[node_id] = {'type': node_type, 'label': label}
+            # 检查是否是始终为真的条件
+            if node_type.lower() == 'condition' and 'while True' in label:
+                always_true_conditions.add(node_id)
+        elif '->' in line:
+            # 解析边
+            edges.append(line)
+    
+    # 过滤掉始终为真的条件的假分支边
+    filtered_edges = []
+    for edge in edges:
+        # 检查边是否有条件标签，如 (yes) 或 (no)
+        if '(' in edge and ')' in edge:
+            from_part, to_node = edge.split('->', 1)
+            from_node = from_part[:from_part.find('(')].strip()
+            condition = from_part[from_part.find('(')+1 : from_part.find(')')].strip().lower()
+            to_node = to_node.strip()
+            # 如果是始终为真的条件且是 'no' 分支，则跳过该边
+            if from_node in always_true_conditions and condition == 'no':
+                continue
+        # 保留其他边
+        filtered_edges.append(edge)
+    
+    # 重新组合节点和过滤后的边
+    node_lines = [line for line in lines if '=>' in line]
+    edge_lines = filtered_edges
+    modified_flowchart = '\n'.join(node_lines + edge_lines)
+    
+    return modified_flowchart

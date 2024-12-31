@@ -8,7 +8,7 @@ import java.util.List;
 @Service  // 添加 @Service 注解，表示这是一个 Spring 管理的服务类
 public class DatabaseService {
 
-    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/baihe_wbq";
+    private static final String JDBC_URL = "jdbc:mysql://mysql_baihe:3306/baihe_wbq";
     private static final String JDBC_USER = "root";
     private static final String JDBC_PASSWORD = "woainiaiwo121";
 

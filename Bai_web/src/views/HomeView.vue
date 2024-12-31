@@ -130,7 +130,7 @@ export default {
       const hasLoop = /\b(for|while)\b/.test(currentCode);
 
       try {
-        const processResponse = await fetch('http://127.0.0.1:5001/api/process_code', {
+        const processResponse = await fetch('http://124.70.51.109:5002/api/process_code', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -142,7 +142,7 @@ export default {
           const result = await processResponse.json();
           const newBlock = {
             code: currentCode,
-            flowchartPath: `http://127.0.0.1:5001${result.flowchartPath}`,
+            flowchartPath: `http://124.70.51.109:5002${result.flowchartPath}`,
             selectedOption: this.selectedOption,
             hasLoop: hasLoop  // Store if loop exists
           };

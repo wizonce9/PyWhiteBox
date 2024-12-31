@@ -38,13 +38,14 @@ def process_code():
         return jsonify({'error': 'No code provided'}), 400
 
     try:
-        flowchart_code_step2 = generate_flowchart_from_code(transform_code(code))
-        processed_code_step3 = process_flowchart(flowchart_code_step2)
-        processed_code_step4 = modify_flowchart(processed_code_step3)
-        output_code_step5 = modify_flowchart_code(processed_code_step4)
-        output_code_step6 = unify_end_node(output_code_step5)
-        final_output_code_step7 = merge_duplicate_nodes_and_remove_duplicate_connections(output_code_step6)
-        final_output_code_step7 = remove_false_edges(final_output_code_step7)
+	flowchart_code_step1 = generate_flowchart_from_code(code)
+	flowchart_code_step2 = generate_flowchart_from_code(transform_code(code))
+	processed_code_step3 = process_flowchart(flowchart_code_step2)
+	processed_code_step4 = modify_flowchart(processed_code_step3)
+	output_code_step5 = modify_flowchart_code(processed_code_step4)
+	output_code_step6 = unify_end_node(output_code_step5)
+	final_output_code_step7 = merge_duplicate_nodes_and_remove_duplicate_connections(output_code_step6)
+	final_output_code_step7 = remove_false_edges(final_output_code_step7)
         # 生成并保存流程图
         flowchart_filename = 'flowchart_output.png'
         saved_flowchart_path = generate_and_save_flowchart(final_output_code_step7,
